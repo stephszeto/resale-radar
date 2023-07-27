@@ -1,0 +1,170 @@
+<html>
+    <head>
+        <title>ResaleRadar: Quick prices for your used items</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <main>
+            <div class="primary-header">
+                <h1><a href="/" id="logo-link">ResaleRadar</a></h1>
+            </div>
+            <div class="input-container">
+                <div id="input-subtitle">
+                    <p> 
+                        What do you want to sell?
+                    </p>
+                </div>
+                <form>
+                    <div class="text-field-container">
+                        <input type="text" id="input" placeholder="KitchenAid mixer, Lululemon sports bra, Madewell skirt">
+                        <input type="button" value="Submit" id="submitBtn" onclick="getResults()">
+                    </div>
+                    <br>
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="new_checkbox" class="checkbox" onclick="getResults()">
+                        <label for="new_checkbox" class="checkbox-labels">New</label>
+                        <input type="checkbox" id="used_checkbox" class="checkbox" onclick="getResults()">
+                        <label for="used_checkbox" class="checkbox-labels">Used</label>
+                    </div>
+                </form>
+            </div>
+
+            <!-- <div class="progress">
+                <div class="color"></div>
+            </div> -->
+
+            <div id="results-container">
+               <ul class="metrics-container" style="display: none">
+               </ul> 
+               <div id="num-results"></div>
+               <table id="listings-table">
+               </table>
+            </div>
+        </main>
+
+        <script>
+            // const baseUrl = 'http://localhost:3000/';
+            const baseUrl = 'https://resaleradar.fly.dev/';
+            var progress = document.getElementsByClassName('progress')[0];
+            var results_container = document.getElementById('results-container');
+            var metrics_container = document.getElementsByClassName('metrics-container')[0];
+            var num_results = document.getElementById('num-results');
+            var listings_table = document.getElementById('listings-table');
+
+            // Clicking Enter triggers submit
+            document.getElementById("input")
+                .addEventListener("keydown", function(event) {
+                    if(event.key !== "Enter") return; 
+                    event.preventDefault(); 
+                    getResults();
+                }
+            );
+
+            // Retrieve results
+            async function getResults() {
+                // Show progress bar while getting results
+                // progress.style.removeProperty('display');
+
+                input = document.getElementById("input").value;
+                var isNew = document.getElementById("new_checkbox").checked;
+                var isUsed = document.getElementById("used_checkbox").checked;
+
+                // Set condition
+                var condition = 'none';
+                if (isNew && !isUsed) {
+                    condition = 'new';
+                } else if (isUsed && !isNew) {
+                    condition = 'used';
+                }
+
+                // Fetch listings from backend
+                if (input != "") {
+                    console.log("Fetching results..");
+                    input = input.replaceAll(",", "%2C").replaceAll(" ", "%20");
+                    let url = baseUrl + 'listings?query=' + input + '&condition=' + condition;
+                    console.log(url);
+                    let res = await fetch(url, {
+                        method: 'GET'
+                    });
+
+                    let results_json = await res.json();
+
+                    console.log(results_json);
+                    // Display results
+                    displayResults(results_json);
+                }
+            }
+
+            function appendContent(parent, content) {
+                var element = document.createElement("p");
+                element.innerHTML = content;
+                parent.appendChild(element);
+            }
+
+            function generateResultsTable(parent, listing_data) {
+                var headers = document.createElement("tr");
+                headers.innerHTML = '<th>Item</th><th>Price</th><th>Sold Date</th>'
+                parent.append(headers);
+                
+                listing_data.forEach((listing) => {
+                    var row = document.createElement("tr");
+                    var item = document.createElement("td");
+                    item.innerHTML = '<a href="' + listing['link'] + '">' + listing['title'] + '</a>';
+
+                    var price = document.createElement("td");
+                    price.classList.add("center-text");
+                    price.innerHTML = '$' + listing['combined_price'].toFixed(2).toString();
+                    if (listing['shipping_num'] > 0) {
+                        price.innerHTML += '<p id="price-detail">(' + listing['price_text'] + listing['shipping_text'] + ')</p>';
+                    }
+
+                    var sold_date = document.createElement("td");
+                    sold_date.innerHTML = listing['sold_date'];
+                    row.appendChild(item);
+                    row.appendChild(price);
+                    row.appendChild(sold_date);
+                    parent.append(row);
+                });
+            }
+
+            // Display listing results
+            function displayResults(results_json) {
+                console.log('Displaying results..');
+
+                // Clear prior results
+                metrics_container.innerHTML = '';
+                num_results.innerHTML = '';
+                listings_table.innerHTML = '';
+
+                // Parse out results from backend
+                var metrics = results_json['metrics'];
+                var listing_data = results_json['listing_data'];
+                var prices = results_json['prices'];
+            
+                // Hide progress bar
+                // progress.style.visibility = "hidden";
+
+                // Add metrics data
+                if (metrics['P50'] < metrics['Average']) {
+                    var metric_values = ['Low', 'P25', 'P50', 'Average', 'P75', 'High'];
+                } else {
+                    var metric_values = ['Low', 'P25', 'Average', 'P50', 'P75', 'High'];
+                }
+                metric_values.forEach((value) => {
+                    console.log(value);
+                    var li = document.createElement("li");
+                    li.setAttribute("metric-label", value);
+                    li.setAttribute("metric-value", "$" + metrics[value].toString());
+                    metrics_container.appendChild(li);
+                });
+                metrics_container.style.removeProperty('display');
+
+                appendContent(num_results, prices.length.toString() + ' results');
+                generateResultsTable(listings_table, listing_data);
+            } 
+        </script>
+    </body>
+</html>
